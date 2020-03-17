@@ -1,0 +1,5 @@
+gym>=0.15
+stable-baselines>=2.9
+scikit-image
+tensorflow-gpu<=1.15
+ptvsd #For Debugging remote processes
