@@ -2,4 +2,10 @@ gym>=0.15
 stable-baselines>=2.9
 scikit-image
 tensorflow-gpu<=1.15
+#yfinance is the main datasource to gather stock data for this project
+yfinance
+lxml
+
+#Optional
 ptvsd #For Debugging remote processes
+jupyterlab
