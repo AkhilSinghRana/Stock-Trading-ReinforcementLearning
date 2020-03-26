@@ -13,7 +13,7 @@ class TradingEnvironment(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human']}
     def __init__(self):
-        self.env_utils =  environmentUtils.EnvironmentUtils()
+        self.env_utils =  environmentUtils.EnvironmentUtils(s_Ticker="MSFT")
         # Define action and observation space for the environment
         self.observation_space = gym.spaces.Box(low= -np.inf, high= np.inf, 
                                                 shape=(self.env_utils.n_days_obs, self.env_utils.num_features_to_consider), dtype=np.float32)
@@ -36,7 +36,7 @@ class TradingEnvironment(gym.Env):
     def setObservation(self):
         # generate the observation space either directly form the online stock library or local file
         
-        self.observation_space = None
+        self.observation_space = self.env_utils._getNextObservation()
 
     def reset(self):
         """
@@ -113,3 +113,9 @@ if __name__=="__main__":
     # test the Environment with random actions here
     import time
     #TO-DO
+    start_time = time.time()
+    env = TradingEnvironment()
+    env.reset()
+    end_time = time.time()
+
+    print("TIme taken by the environment ==>", end_time-start_time)

@@ -2,8 +2,8 @@ import numpy as np
 import os, random, math, sys, signal
 from shutil import copyfile
 from importlib import reload
-from envs import TaskingEnvironment_LevelGame_MultiDiscrete as taskEnv
-reload(taskEnv)
+from envs import stockTradingEnv as tradingEnv
+reload(tradingEnv)
 
 # for debugging
 #import ptvsd
@@ -17,7 +17,7 @@ from stable_baselines.common import make_vec_env # For multiprocessing support
 from stable_baselines.common.vec_env import VecFrameStack, VecEnv, DummyVecEnv
 
 ########Import Custom CNN POlicy
-from customPolicy import CustomPolicy
+#from customPolicy import CustomPolicy
 # from util.customPolicy import CustomPolicy
 # from util import customCallbacks as ccb
 ######## DQN
@@ -36,13 +36,15 @@ def ArgumentParser():
         parser.add_argument("--mode", type=str, default="train", help="train/test/continueTrain")
         parser.add_argument("--visualize","-visualize", action="store_true")
 
-        parser.add_argument("--num_envs", type=int, default=32, help="number of parallel environments to train with")
+        parser.add_argument("--num_envs", type=int, default=1, help="number of parallel environments to train with")
         # parser.add_argument("--customPolicy", type=str, default="C:\\Airbus\\PAXSEM_Docker_r22990\\data_experiments\\2018_scenarios\\ReinforcementLearning\\paxsem_rl\\UseCase_TaskingAndPlanning\\customPolicy.py")
         # parser.add_argument("--model", type=str, default="C:\\Airbus\\PAXSEM_Docker_r22990\\data_experiments\\2018_scenarios\\ReinforcementLearning\\paxsem_rl\\UseCase_TaskingAndPlanning\\logs_models\\AREA_TEST__2020-02-01_14-02\\AREA_TEST__2020-02-01_14-02finished.pkl")
         parser.add_argument("--exp_name", type=str, default="GridWorld_MultiLevelGame", help="experiment name (used to save model&env)")
         parser.add_argument("--filesToBeSaved", type=str, default="envs/TaskingEnvironment_LevelGame_MultiDiscrete.py,EnvConstants.py,Rendering/renderingFunctionsPyglet.py,train_scenario.py,customPolicy.py,RasterArea.py,Agent.py", help="experiment name (used to save model&env)")
         # parser.add_argument("--instances", type=int, default=16)
 
+        # Arguments for the STOCK MARKET
+        parser.add_argument("--s_ticker", type=str, default="MSFT", help="This defines which stock will be used for training or testing, defaults to MICROSOFT")
         args = parser.parse_args()
         return args
 
@@ -65,15 +67,13 @@ def train(args):
         """
         Test if the algorithm (with a given policy)
         """
-        env = make_vec_env(taskEnv.TaskEnvironment, n_envs=args.num_envs)
-        env = VecFrameStack(env, n_stack = 4)
+        env = make_vec_env(tradingEnv.TradingEnvironment, n_envs=args.num_envs)
+        #env = VecFrameStack(env, n_stack = 4)
         #Uncomment to enable visualizations!
-        if args.visualize:
-                env.env_method("setTesting")
         #env = PPODummyVecEnv([lambda: droneEnv.DroneEnv(envObject)])
         print("Vectorized env created")
         print("Creating model") 
-        
+        env.reset()
         #Constants for saving logs and models
         exp_name = args.exp_name
         save_dir = os.path.join(BASE_PATH,'logs_models', exp_name)
