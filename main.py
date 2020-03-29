@@ -64,7 +64,6 @@ def train(args):
         env = make_vec_env(tradingEnv.TradingEnvironment, n_envs=args.num_envs)
         #env = VecFrameStack(env, n_stack = 4)
         #Uncomment to enable visualizations!
-        #env = PPODummyVecEnv([lambda: droneEnv.DroneEnv(envObject)])
         print("Vectorized env created")
         print("Creating model") 
         env.reset()
