@@ -20,9 +20,7 @@ from stable_baselines.common.vec_env import VecFrameStack, VecEnv, DummyVecEnv
 #from customPolicy import CustomPolicy
 # from util.customPolicy import CustomPolicy
 # from util import customCallbacks as ccb
-######## DQN
-# from stable_baselines.deepq.policies import MlpPolicy, CnnPolicy
-from stable_baselines import DQN
+
 
 import tensorflow as tf
 # tf.enable_eager_execution()
