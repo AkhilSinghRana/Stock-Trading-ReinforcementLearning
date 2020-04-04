@@ -105,7 +105,7 @@ def test():
 def checkEnv():
         from stable_baselines.common.env_checker import check_env
 
-        env = taskEnv.TaskEnvironment()
+        env = tradingEnv.TradingEnvironment()
         # It will check your custom environment and output additional warnings if needed
         check_env(env)
         

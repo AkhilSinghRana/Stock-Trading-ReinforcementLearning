@@ -108,6 +108,7 @@ class TradingEnvironment(gym.Env):
             # BUY a percentage amount
             total_possible = self.ACOUNT_BALANCE / current_price
             shares_bought = total_possible * amount
+            print("Buying {} number of stocks".format(shares_bought))
             additional_cost = shares_bought * current_price
             self.MONEY_SPENT += additional_cost
             self.ACOUNT_BALANCE -= additional_cost
@@ -116,6 +117,7 @@ class TradingEnvironment(gym.Env):
         elif action_type < 3:
             # SELL a percentage amount
             shares_sold = self.SHARES_HELD * amount 
+            print("Selling {} number of stocks".format(shares_sold))
             self.ACOUNT_BALANCE += shares_sold * current_price
             self.SHARES_HELD -= shares_sold
             self.SHARES_SOLD += shares_sold
@@ -126,7 +128,8 @@ class TradingEnvironment(gym.Env):
         if self.net_worth > self.max_net_worth:
             self.max_net_worth = self.net_worth
         
-        print("NET WORTH IN AMOUNT", self.net_worth)
+        
+        
         # Calculate the rewards now
         self.calculateRewards()
 
