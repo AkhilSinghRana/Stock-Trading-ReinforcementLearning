@@ -43,7 +43,7 @@ def train(args):
         """
         Test if the algorithm (with a given policy)
         """
-        env = make_vec_env(tradingEnv.TradingEnvironment, n_envs=args.num_envs)
+        env = make_vec_env(tradingEnv.TradingEnvironment, n_envs=args.num_envs, env_kwargs={"s_ticker":args.s_ticker})
         #env = VecFrameStack(env, n_stack = 4)
         #Uncomment to enable visualizations!
         print("Vectorized env created")

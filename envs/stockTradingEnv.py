@@ -12,8 +12,9 @@ from util import environmentUtils
 class TradingEnvironment(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human']}
-    def __init__(self):
-        self.env_utils =  environmentUtils.EnvironmentUtils(s_Ticker="MSFT")
+    def __init__(self, s_ticker="MSFT"):
+        self.s_ticker = s_ticker
+        self.env_utils =  environmentUtils.EnvironmentUtils(s_Ticker=self.s_ticker)
         # Define action and observation space for the environment
         self.observation_space = gym.spaces.Box(low= -np.inf, high= np.inf, 
                                                 shape=(self.env_utils.n_days_obs, self.env_utils.num_features_to_consider), dtype=np.float32)
