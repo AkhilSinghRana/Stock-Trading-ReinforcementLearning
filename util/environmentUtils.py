@@ -92,6 +92,7 @@ class EnvironmentUtils():
             Get the stock observation directly from the yFinance or other frameworks.
             If you have your data already written to CSV file please use methode 'getStockObservation_fromCSV'
         """
+        print("Downloading {} data now".format(self.stockTicker))
         self.pandasData = yf.download(self.stockTicker, start=start_date)
         
 
