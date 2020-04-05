@@ -106,5 +106,7 @@ if __name__ == "__main__":
         elif args.mode=="checkEnv":
                 #This function checks and gives warnings about your environments!
                 checkEnv()
+        elif args.mode=="colab":
+                pass
         else:
                 raise Exception 
