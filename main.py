@@ -43,7 +43,8 @@ def train(args):
         """
         Test if the algorithm (with a given policy)
         """
-        env = make_vec_env(tradingEnv.TradingEnvironment, n_envs=args.num_envs, env_kwargs={"s_ticker":args.s_ticker})
+        env_info = {"s_ticker": args.s_ticker, "trade_interval":args.trade_interval, "fromCSV":args.fromCSV}
+        env = make_vec_env(tradingEnv.TradingEnvironment, n_envs=args.num_envs, env_kwargs={"env_info": env_info})
         #env = VecFrameStack(env, n_stack = 4)
         #Uncomment to enable visualizations!
         print("Vectorized env created")
@@ -62,7 +63,7 @@ def train(args):
             #train for first 1 million Epochs
             steps_per_batch, num_envs = model.n_steps, env.num_envs
             
-            model.learn(total_timesteps=int(1000), tb_log_name=exp_name, log_interval=10)
+            model.learn(total_timesteps=args.num_epochs, tb_log_name=exp_name, log_interval=10)
             
             print("First training done")
             model.save(save_path=os.path.join(BASE_PATH,'logs_models',exp_name,exp_name+'_finished'))

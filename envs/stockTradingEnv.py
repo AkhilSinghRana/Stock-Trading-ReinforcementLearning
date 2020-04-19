@@ -12,12 +12,17 @@ from util import environmentUtils
 class TradingEnvironment(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human']}
-    def __init__(self, s_ticker="MSFT"):
-        self.s_ticker = s_ticker
-        self.env_utils =  environmentUtils.EnvironmentUtils(s_Ticker=self.s_ticker)
+    def __init__(self, env_info={}):
+        self.s_ticker = env_info["s_ticker"]
+        self.trade_interval = env_info["trade_interval"]
+        
+        self.getData_fromCSV = env_info["fromCSV"]
+        
+        self.env_utils =  environmentUtils.EnvironmentUtils(s_Ticker=self.s_ticker, trade_mode=self.trade_interval)
+        
         # Define action and observation space for the environment
         self.observation_space = gym.spaces.Box(low= -np.inf, high= np.inf, 
-                                                shape=(self.env_utils.n_days_obs, self.env_utils.num_features_to_consider), dtype=np.float32)
+                                                shape=(self.env_utils.n_obs_hist, self.env_utils.num_features_to_consider), dtype=np.float32)
         
         #we allow movement only 1 element far ... so 8 neighboring elements are max possible elements to move to
         # 9 possible actions +1 to encode no movement
@@ -42,7 +47,10 @@ class TradingEnvironment(gym.Env):
     
     def setObservation(self, mode="step"):
         # generate the observation space either directly form the online stock library or local file
-        self.observation_space = self.env_utils._getNextObservation(mode=mode)
+        if self.getData_fromCSV:
+            self.observation_space = self.env_utils._getNextObservation(mode=mode, getData="fromCSV")
+        else:
+            self.observation_space = self.env_utils._getNextObservation(mode=mode)
 
     def reset(self):
         """
