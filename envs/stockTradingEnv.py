@@ -34,7 +34,7 @@ class TradingEnvironment(gym.Env):
         self.done=False
         self.episodeCounter = 0 #Keep track of number of elapsed episodes during the run
         self.episodeLength = 0 #Keep track of the length of the episode, might be important for the reward scheme
-        self.max_episode_length = 2*364*24
+        
         
         #Keep track of the rewards received by the agent over the time frame
         self.step_reward = 0
@@ -56,8 +56,11 @@ class TradingEnvironment(gym.Env):
         """
             Reset the observation to the random time or just change the Ticket/stock company
         """
+        self.setObservation(mode="reset") 
+
         # reset episode steps
         self.episodeLength=0
+        self.max_episode_length = self.env_utils.len_data # Length of the data!
         self.episodeCounter += 1
         self.episode_reward = 0
 
@@ -72,7 +75,6 @@ class TradingEnvironment(gym.Env):
         
         self.done = False
         
-        self.setObservation(mode="reset") 
         # self.render(mode="graphics")
         return self.observation_space
             
@@ -96,9 +98,10 @@ class TradingEnvironment(gym.Env):
         self.episode_reward += self.step_reward
         
         # Change to True when the net worth is 0
-        self.done= self.net_worth<=0 
+        self.done= self.net_worth<=0  #another reset condition, apart from max steps in episode
         self.setObservation()
         info = {} #Generate extra information for debug
+        
         return self.observation_space, self.step_reward, self.done, info
     
     def performAction(self, action):
@@ -106,7 +109,7 @@ class TradingEnvironment(gym.Env):
         assert (action in self.action_space), "Oh, no action is invalid, check the action space of the environment"
         action_type = action[0]
         amount = action[1]
-        self.step_reward = -0.01 # Define how much reward has to be assinged for the action
+        
         # Set the current price to a random price within the time step
         current_price = random.uniform(self.env_utils.open, self.env_utils.close)
             
@@ -117,7 +120,7 @@ class TradingEnvironment(gym.Env):
             # BUY a percentage amount
             total_possible = self.ACOUNT_BALANCE / current_price
             shares_bought = total_possible * amount
-            print("Buying {} number of stocks".format(shares_bought))
+            
             additional_cost = shares_bought * current_price
             self.MONEY_SPENT += additional_cost
             self.ACOUNT_BALANCE -= additional_cost
@@ -126,7 +129,7 @@ class TradingEnvironment(gym.Env):
         elif action_type < 3:
             # SELL a percentage amount
             shares_sold = self.SHARES_HELD * amount 
-            print("Selling {} number of stocks".format(shares_sold))
+            
             self.ACOUNT_BALANCE += shares_sold * current_price
             self.SHARES_HELD -= shares_sold
             self.SHARES_SOLD += shares_sold
@@ -137,10 +140,9 @@ class TradingEnvironment(gym.Env):
         if self.net_worth > self.max_net_worth:
             self.max_net_worth = self.net_worth
         
-        
-        
+
         # Calculate the rewards now
-        self.calculateRewards()
+        self.step_reward = self.calculateRewards()
 
             
     def calculateRewards(self):
@@ -149,7 +151,7 @@ class TradingEnvironment(gym.Env):
         '''
         #Reward calculations
         delay_modifier = (self.episodeLength / self.max_episode_length)
-        reward = self.ACOUNT_BALANCE * delay_modifier
+        reward = self.ACOUNT_BALANCE * delay_modifier #Do we want our agent to increase the networth or Account Balance
         
         return reward
 
