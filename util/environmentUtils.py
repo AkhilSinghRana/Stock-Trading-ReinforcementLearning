@@ -28,7 +28,7 @@ class EnvironmentUtils():
         
         #Action based variables
         self.num_actions = 3 # Number of actions agent should sample from, Buy, Hold Sell
-        self.ACOUNT_BALANCE = 50000
+        self.ACOUNT_BALANCE = 5000 #USD
          
         self.agent_reaction_time = 1 #How often does the agent reacts every n hours or days, necesaary to define the length of a step
 
@@ -46,6 +46,7 @@ class EnvironmentUtils():
             if getData=="online":
                 self.getStockObservation_online()
             elif getData=="fromCSV":
+                print("Loading from CSV")
                 self.getStockObservation_fromCSV()
             else:
                 raise NotImplementedError
@@ -100,12 +101,13 @@ class EnvironmentUtils():
         self.pandasData = self.tickerData.history(interval=self.trade_mode)
         
         print(self.pandasData.shape)
+        
         #Split to trainTest 
         split_percent = 0.1 #10 percent
         num_test_rows = int(split_percent* self.pandasData.shape[0])
         self.testData = self.pandasData.tail(num_test_rows)
         self.pandasData = self.pandasData[:-num_test_rows]
-        print(self.pandasData.shape, self.testData.shape)
+        
         print("writing the test data to a csv file for later...")
         self.testData.astype(np.float32)
         self.testData.to_csv("./test.csv",float_format='%.2f')
@@ -113,5 +115,4 @@ class EnvironmentUtils():
 
     def getStockObservation_fromCSV(self, filename="./test.csv"):
         self.pandasData = pd.read_csv(filename)
-        print("test data", self.pandasData.shape)
-        print(type(self.pandasData))
+        
