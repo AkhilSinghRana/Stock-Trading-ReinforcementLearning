@@ -41,9 +41,9 @@ def save_training_setup(save_path=".", file_list=[], exp_name=""):
 def train(args):
         #Using Stable Baselines
         """
-        Test if the algorithm (with a given policy)
+        Train the algorithm (with a given policy)
         """
-        env_info = {"s_ticker": args.s_ticker, "trade_interval":args.trade_interval, "fromCSV":args.fromCSV}
+        env_info = {"s_ticker": args.s_ticker, "trade_interval":args.trade_interval, "fromCSV":args.fromCSV, "account_balance":args.account_balance}
         env = make_vec_env(tradingEnv.TradingEnvironment, n_envs=args.num_envs, env_kwargs={"env_info": env_info})
         #env = VecFrameStack(env, n_stack = 4)
         #Uncomment to enable visualizations!

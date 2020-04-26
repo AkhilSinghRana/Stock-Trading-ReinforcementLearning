@@ -16,5 +16,6 @@ def ArgumentParser():
         # Arguments for the STOCK MARKET
         parser.add_argument("--s_ticker", type=str, default="MSFT", help="This defines which stock will be used for training or testing, defaults to MICROSOFT")
         parser.add_argument("--trade_interval", type=str, default="1h", help="interval to record 1m/1h/1d ... default 1 hour please refer to yFinance for availabel options")
+        parser.add_argument("--account_balance", type=int, default=5000, help="Account balance to start with $USD default: 5000 $USD")
         args = parser.parse_args()
         return args
