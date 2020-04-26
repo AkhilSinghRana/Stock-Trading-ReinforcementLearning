@@ -23,12 +23,13 @@ class EnvironmentUtils():
         #Observation based variables for the environment defined below
         self.n_obs_hist = 5 #Number of days/hours(for minute mode) to keep in the Observation Agent will have history for n days/hours
         self.features=["Open", "Low", "High", "Close", "Volume"]
+        
         self.num_features_to_consider = len(self.features) #Number of features that agent get's for every observation
         self.filled_Obs = deque(maxlen=self.n_obs_hist)
         
         #Action based variables
         self.num_actions = 3 # Number of actions agent should sample from, Buy, Hold Sell
-        self.ACOUNT_BALANCE = 5000 #USD
+        self.ACOUNT_BALANCE = 5000 #USD user can define it before starting training, check main.py or colab notebook!
          
         self.agent_reaction_time = 1 #How often does the agent reacts every n hours or days, necesaary to define the length of a step
 
@@ -53,6 +54,7 @@ class EnvironmentUtils():
                 
         
         if mode=="reset":
+            
             self.MAX_NUM_SHARES = self.pandasData["Volume"].max()
             self.MAX_SHARE_PRICE = self.pandasData["High"].max()
             self.len_data = self.pandasData.shape[0]
@@ -68,6 +70,7 @@ class EnvironmentUtils():
         if len(self.filled_Obs)<self.n_obs_hist:
             while len(self.filled_Obs)<self.n_obs_hist:
                 obs = self.pandasData.iloc[self.loc]
+                self.current_date = obs.name.date()
                 
                 self.open = obs["Open"].round(2)
                 self.close = obs["Close"].round(2)
@@ -81,6 +84,7 @@ class EnvironmentUtils():
 
         else:
             obs = self.pandasData.iloc[self.loc]
+            self.current_date = obs.name.date()
             obs = obs[self.features].round(2) if not getData=="fromCSV" else obs[self.features]
             self.loc+=1
             if self.loc==self.len_data-1:

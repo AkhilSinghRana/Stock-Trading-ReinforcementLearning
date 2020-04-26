@@ -19,14 +19,14 @@ class TradingEnvironment(gym.Env):
         self.getData_fromCSV = env_info["fromCSV"]
         
         self.env_utils =  environmentUtils.EnvironmentUtils(s_Ticker=self.s_ticker, trade_mode=self.trade_interval)
-        
+        self.env_utils.ACOUNT_BALANCE = env_info["account_balance"] # Account balance to start with user defines it!
         # Define action and observation space for the environment
         self.observation_space = gym.spaces.Box(low= -np.inf, high= np.inf, 
                                                 shape=(self.env_utils.n_obs_hist, self.env_utils.num_features_to_consider), dtype=np.float32)
         
         #we allow movement only 1 element far ... so 8 neighboring elements are max possible elements to move to
         # 9 possible actions +1 to encode no movement
-        self.action_space = gym.spaces.Box(low= np.array([0, 0]) , high= np.array([self.env_utils.num_actions, 1]), dtype=np.float32)
+        self.action_space = gym.spaces.Box(low= np.array([0, 0.1]) , high= np.array([self.env_utils.num_actions, 1]), dtype=np.float32)
         self.ACOUNT_BALANCE = self.env_utils.ACOUNT_BALANCE
         self.reward_range = (0, self.ACOUNT_BALANCE*10000)
         
@@ -42,6 +42,14 @@ class TradingEnvironment(gym.Env):
 
         #Stock Share options for agent
         self.SHARES_HELD = 0 #Number of shares Held in total
+
+        self.daily_shares_sold = 0
+        self.daily_shares_bought = 0
+        self.daily_profit = 0
+        self.daily_account_balance = self.ACOUNT_BALANCE
+
+        self.stats_template = "Total Shares Bought {} \t\t Total Shares Sold {} \t\t Total Shares HELD {}"
+        self.account_stat_template = "Account balance at Start {} \t ACCOUNT BALANCE at End {} \t NetWorth {} \t PROFIT for today {}"
         
         print("Env Initialized")
     
@@ -65,7 +73,8 @@ class TradingEnvironment(gym.Env):
         self.episode_reward = 0
 
         #Stock Share options for agent
-        self.ACOUNT_BALANCE = self.env_utils.ACOUNT_BALANCE
+        self.ACOUNT_BALANCE = self.daily_account_balance = self.env_utils.ACOUNT_BALANCE
+
         self.SHARES_HELD = 0 #Number of shares bought in this episode
         self.SHARES_SOLD = 0 #Number of shares bought in this episode
 
@@ -74,7 +83,6 @@ class TradingEnvironment(gym.Env):
         self.net_worth = self.max_net_worth = self.ACOUNT_BALANCE
         
         self.done = False
-        
         # self.render(mode="graphics")
         return self.observation_space
             
@@ -92,14 +100,23 @@ class TradingEnvironment(gym.Env):
 
     def step(self, action, agentID=0):
 
+        self.current_date = self.env_utils.current_date
         self.episodeLength+=1
         # Perform an action by the agent
         self.performAction(action)
         self.episode_reward += self.step_reward
         
         # Change to True when the net worth is 0
-        self.done= self.net_worth<=0  #another reset condition, apart from max steps in episode
+        self.done = self.net_worth<=0  #another reset condition, apart from max steps in episode
         self.setObservation()
+
+        self.next_date = self.env_utils.current_date
+        if self.current_date!=self.next_date:
+            print("Agent's statistics for today: {}".format(self.current_date))
+            self.showStats()
+            print("=======================================")
+            self.daily_account_balance = self.ACOUNT_BALANCE
+        
         info = {} #Generate extra information for debug
         
         return self.observation_space, self.step_reward, self.done, info
@@ -112,19 +129,24 @@ class TradingEnvironment(gym.Env):
         
         # Set the current price to a random price within the time step
         current_price = random.uniform(self.env_utils.open, self.env_utils.close)
-            
+        
         if action_type < 1:
             # HOLD
             pass
         elif action_type < 2:
-            # BUY a percentage amount
-            total_possible = self.ACOUNT_BALANCE / current_price
-            shares_bought = total_possible * amount
-            
-            additional_cost = shares_bought * current_price
-            self.MONEY_SPENT += additional_cost
-            self.ACOUNT_BALANCE -= additional_cost
-            self.SHARES_HELD += shares_bought
+            if self.ACOUNT_BALANCE > 0:
+                # BUY a percentage amount only if Account Balance is in positive
+                total_possible = self.ACOUNT_BALANCE / current_price
+                shares_bought = total_possible * amount
+                
+                additional_cost = shares_bought * current_price
+                self.MONEY_SPENT += additional_cost
+                self.ACOUNT_BALANCE -= additional_cost
+                self.SHARES_HELD += shares_bought
+                self.daily_shares_bought += shares_bought
+            else:
+                self.step_reward = -10
+                return
             
         elif action_type < 3:
             # SELL a percentage amount
@@ -134,13 +156,13 @@ class TradingEnvironment(gym.Env):
             self.SHARES_HELD -= shares_sold
             self.SHARES_SOLD += shares_sold
             self.MONEY_EARNED += shares_sold * current_price
+            self.daily_shares_sold += shares_sold
 
             
-        self.netWorth = self.ACOUNT_BALANCE + self.SHARES_HELD * current_price
+        self.net_worth = self.ACOUNT_BALANCE + self.SHARES_HELD * current_price
         if self.net_worth > self.max_net_worth:
             self.max_net_worth = self.net_worth
         
-
         # Calculate the rewards now
         self.step_reward = self.calculateRewards()
 
@@ -155,10 +177,21 @@ class TradingEnvironment(gym.Env):
         
         return reward
 
+    
+    def showStats(self):
+        self.daily_profit = self.ACOUNT_BALANCE - self.daily_account_balance
+        print(self.stats_template.format(self.daily_shares_bought, self.daily_shares_sold, self.SHARES_HELD))
+        
+        
+        print(self.account_stat_template.format(self.daily_account_balance, self.ACOUNT_BALANCE, self.net_worth, self.daily_profit))
+        
+        #Reset the daily stats
+        self.daily_shares_bought = self.daily_shares_sold = 0 
 
     def close(self):
         #Close the environment, do garbage Cleaning if needed!
         pass
+
 
 if __name__=="__main__":
     # test the Environment with random actions here
