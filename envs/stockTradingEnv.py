@@ -17,8 +17,8 @@ class TradingEnvironment(gym.Env):
         self.trade_interval = env_info["trade_interval"]
         
         self.getData_fromCSV = env_info["fromCSV"]
-        
-        self.env_utils =  environmentUtils.EnvironmentUtils(s_Ticker=self.s_ticker, trade_mode=self.trade_interval)
+        self.agent_mode = env_info["agent_mode"] #train/test
+        self.env_utils =  environmentUtils.EnvironmentUtils(s_Ticker=self.s_ticker, trade_mode=self.trade_interval, agent_mode=self.agent_mode, args=env_info["args"])
         self.env_utils.ACOUNT_BALANCE = env_info["account_balance"] # Account balance to start with user defines it!
         # Define action and observation space for the environment
         self.observation_space = gym.spaces.Box(low= -np.inf, high= np.inf, 
@@ -56,9 +56,12 @@ class TradingEnvironment(gym.Env):
     def setObservation(self, mode="step"):
         # generate the observation space either directly form the online stock library or local file
         if self.getData_fromCSV:
-            self.observation_space = self.env_utils._getNextObservation(mode=mode, getData="fromCSV")
+            self.observation_space, self.done = self.env_utils._getNextObservation(mode=mode, getData="fromCSV")    
         else:
-            self.observation_space = self.env_utils._getNextObservation(mode=mode)
+            self.observation_space, self.done = self.env_utils._getNextObservation(mode=mode)
+            
+        self.observation_space = np.asarray(self.observation_space).reshape(self.env_utils.n_obs_hist, self.env_utils.num_features_to_consider)
+        
 
     def reset(self):
         """
@@ -82,8 +85,7 @@ class TradingEnvironment(gym.Env):
         self.MONEY_EARNED = 0
         self.net_worth = self.max_net_worth = self.ACOUNT_BALANCE
         
-        self.done = False
-        # self.render(mode="graphics")
+        
         return self.observation_space
             
     def render(self, mode='human'):
@@ -100,19 +102,18 @@ class TradingEnvironment(gym.Env):
 
     def step(self, action, agentID=0):
 
-        self.current_date = self.env_utils.current_date
+        
         self.episodeLength+=1
         # Perform an action by the agent
         self.performAction(action)
         self.episode_reward += self.step_reward
         
         # Change to True when the net worth is 0
-        self.done = self.net_worth<=0  #another reset condition, apart from max steps in episode
+        
         self.setObservation()
-
-        self.next_date = self.env_utils.current_date
-        if self.current_date!=self.next_date:
-            print("Agent's statistics for today: {}".format(self.current_date))
+        if self.done:
+            # Finish the episode, and reset agent's variables, like account balance, sample a random day again!
+            print("Agent's statistics for today: {}".format(self.env_utils.current_date))
             self.showStats()
             print("=======================================")
             self.daily_account_balance = self.ACOUNT_BALANCE

@@ -43,13 +43,13 @@ def train(args):
         """
         Train the algorithm (with a given policy)
         """
-        env_info = {"s_ticker": args.s_ticker, "trade_interval":args.trade_interval, "fromCSV":args.fromCSV, "account_balance":args.account_balance}
+        env_info = {"s_ticker": args.s_ticker, "trade_interval":args.trade_interval, "fromCSV":args.fromCSV, "account_balance":args.account_balance, "agent_mode":args.mode, "args":args}
         env = make_vec_env(tradingEnv.TradingEnvironment, n_envs=args.num_envs, env_kwargs={"env_info": env_info})
         #env = VecFrameStack(env, n_stack = 4)
         #Uncomment to enable visualizations!
         print("Vectorized env created")
         print("Creating model") 
-        env.reset()
+        
         #Constants for saving logs and models
         exp_name = args.exp_name
         save_dir = os.path.join(BASE_PATH,'logs_models', exp_name)

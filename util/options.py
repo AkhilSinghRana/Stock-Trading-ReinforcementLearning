@@ -6,6 +6,7 @@ def ArgumentParser():
         # parser.add_argument('--mode', help="Mode can be train, test or continueTrain", default="train", type=str)
         parser.add_argument("--mode", type=str, default="train", help="train/test/continueTrain")
         parser.add_argument("--fromCSV", type=bool, default=False, help="Read the data from CSV")
+        parser.add_argument("--reload", action="store_true")
         parser.add_argument("--visualize","-visualize", action="store_true")
 
         #Arguments for RL algorithm/ taining / testing
