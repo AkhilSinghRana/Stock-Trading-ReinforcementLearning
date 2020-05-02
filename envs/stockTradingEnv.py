@@ -13,20 +13,19 @@ class TradingEnvironment(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human']}
     def __init__(self, env_info={}):
-        self.s_ticker = env_info["s_ticker"]
-        self.trade_interval = env_info["trade_interval"]
         
-        self.getData_fromCSV = env_info["fromCSV"]
-        self.agent_mode = env_info["agent_mode"] #train/test
-        self.env_utils =  environmentUtils.EnvironmentUtils(s_Ticker=self.s_ticker, trade_mode=self.trade_interval, agent_mode=self.agent_mode, args=env_info["args"])
-        self.env_utils.ACOUNT_BALANCE = env_info["account_balance"] # Account balance to start with user defines it!
+        self.args = env_info["args"]
+        self.getData_fromCSV = self.args.fromCSV #boolean
+        self.env_utils =  environmentUtils.EnvironmentUtils(args= self.args)
+        self.env_utils.ACOUNT_BALANCE = self.args.account_balance # Account balance to start with user defines it!
         # Define action and observation space for the environment
         self.observation_space = gym.spaces.Box(low= -np.inf, high= np.inf, 
                                                 shape=(self.env_utils.n_obs_hist, self.env_utils.num_features_to_consider), dtype=np.float32)
         
-        #we allow movement only 1 element far ... so 8 neighboring elements are max possible elements to move to
-        # 9 possible actions +1 to encode no movement
-        self.action_space = gym.spaces.Box(low= np.array([0, 0.1]) , high= np.array([self.env_utils.num_actions, 1]), dtype=np.float32)
+        
+        # Uncomment to change to Box Action Space, usefull if you require multiple actions by agent
+        #self.action_space = gym.spaces.Box(low= np.array([0, 0.1]) , high= np.array([self.env_utils.num_actions, 1]), dtype=np.float32)
+        self.action_space = gym.spaces.Discrete(3)
         self.ACOUNT_BALANCE = self.env_utils.ACOUNT_BALANCE
         self.reward_range = (0, self.ACOUNT_BALANCE*10000)
         
@@ -62,7 +61,7 @@ class TradingEnvironment(gym.Env):
             
         self.observation_space = np.asarray(self.observation_space).reshape(self.env_utils.n_obs_hist, self.env_utils.num_features_to_consider)
         
-
+        
     def reset(self):
         """
             Reset the observation to the random time or just change the Ticket/stock company
@@ -125,20 +124,18 @@ class TradingEnvironment(gym.Env):
     def performAction(self, action):
         #### Maps an Algorithm's action to the Agent's action
         assert (action in self.action_space), "Oh, no action is invalid, check the action space of the environment"
-        action_type = action[0]
-        amount = action[1]
+        
         
         # Set the current price to a random price within the time step
         current_price = random.uniform(self.env_utils.open, self.env_utils.close)
-        
-        if action_type < 1:
+        if action == 0:
             # HOLD
             pass
-        elif action_type < 2:
+        elif action == 1:
             if self.ACOUNT_BALANCE > 0:
                 # BUY a percentage amount only if Account Balance is in positive
                 total_possible = self.ACOUNT_BALANCE / current_price
-                shares_bought = total_possible * amount
+                shares_bought = total_possible 
                 
                 additional_cost = shares_bought * current_price
                 self.MONEY_SPENT += additional_cost
@@ -149,9 +146,9 @@ class TradingEnvironment(gym.Env):
                 self.step_reward = -10
                 return
             
-        elif action_type < 3:
+        elif action == 2:
             # SELL a percentage amount
-            shares_sold = self.SHARES_HELD * amount 
+            shares_sold = self.SHARES_HELD 
             
             self.ACOUNT_BALANCE += shares_sold * current_price
             self.SHARES_HELD -= shares_sold
