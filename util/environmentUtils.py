@@ -28,12 +28,13 @@ class EnvironmentUtils():
         
         self.agent_reaction_time = self.args.wait_time #number of minutes agent needs in order to react, ===== 60 == 1 hour
         self.n_obs_hist = int((self.agent_reaction_time ) / int(self.trade_mode[0]))  #Number of days/hours(for minute mode) to keep in the Observation Agent will have history for n days/hours
-        self.n_obs_hist = self.n_obs_hist * self.num_stocks #THe obsevation space is now increased according to number of stocks
+        
 
         self.features= self.args.s_features
         print(self.features)
         
         self.num_features_to_consider = len(self.features) #Number of features that agent get's for every observation
+        self.num_features_to_consider = self.num_features_to_consider * self.num_stocks #THe obsevation space is now increased according to number of stocks
         self.filled_Obs = deque(maxlen=self.n_obs_hist)
         
         #Action based variables
@@ -47,6 +48,7 @@ class EnvironmentUtils():
         # Create Groups for everyday data
         grouped_dict=dict()
         for ticker in self.stockTicker:
+            #Creates a groups in date time for every day and for each stock
             grouped_dict["{}".format(ticker)] = self.pandasData[ticker].groupby(pd.Grouper(key="Datetime", freq='D'))
             
 
@@ -55,16 +57,23 @@ class EnvironmentUtils():
         for k, v in grouped_dict["{}".format(self.stockTicker[0])]:
             ticker_sub_group.clear()
             if v.shape[0] > 0:
+
                 i=1
                 ticker_sub_group.append(v)
                 while i in range(len(self.stockTicker)):
+                    #SUbset and merge the days into single train data for every day!
                     v = grouped_dict["{}".format(self.stockTicker[i])].get_group(k)
                     ticker_sub_group.append(v)
                     i+=1
                 
-            
                 df = pd.concat(ticker_sub_group, axis=1, ignore_index=False, keys= self.stockTicker)
-                self.trainData.append(df) 
+                
+                #Test function support
+                if self.args.singleDayTestMode:
+                    if self.args.date == str(df[self.stockTicker[0]]["Datetime"].iloc[0].date()):
+                        self.trainData.append(df) 
+                else:
+                    self.trainData.append(df) 
 
         print("Total Training days available --> ", len(self.trainData))
 
@@ -93,7 +102,22 @@ class EnvironmentUtils():
                     self.already_sampled_DataIndices.append(index)
                     self.data = self.trainData[index]
                     self.len_data = self.data.shape[0]
-                    self.current_date = self.data["Datetime"].iloc[0].date()
+                    
+                    if self.len_data < self.n_obs_hist:
+                        continue #Skips the days which don't have atleast the number of mins specified above!
+                    
+                    # Compute the percentage data only when the flag is enabled
+                    if self.args.compute_pct_change:
+                        self.pct_change_data = []
+                        self.pct_change_data.clear()
+                        
+                        for stock in self.stockTicker:
+                            self.pct_change_data.append(self.data[stock][self.features].pct_change().dropna())
+                        self.pct_change_data = pd.concat(self.pct_change_data, axis = 1, ignore_index=True)
+                        self.len_data = self.pct_change_data.shape[0]
+
+                    
+                    self.current_date = self.data[self.stockTicker[0]]["Datetime"].iloc[0].date()
                     self.loc = 0 # Location within the day, starts from 1st datapoint
                     
                     
@@ -114,31 +138,82 @@ class EnvironmentUtils():
                     """
     
         if len(self.filled_Obs)<self.n_obs_hist:
-            pritn("Here")
             while len(self.filled_Obs)<self.n_obs_hist:
-                obs = self.data.iloc[self.loc]
-                print("Reachin   here.........", obs)
-                #self.current_date = pd.to_datetime(obs["Datetime"]).date()
                 
-                self.open = obs["Open"].round(2)
-                print("Reachin   here")
-                self.close = obs["Close"].round(2)
-                obs = obs[self.features].round(2) if not getData=="fromCSV" else obs[self.features]
+                if self.args.compute_pct_change:
+                    obs = self.pct_change_data.iloc[self.loc]
+                    # get open for only first main stock
+                    self.open = self.data[self.stockTicker[0]]["Open"].iloc[self.loc+1].round(2)
+                    self.close = self.data[self.stockTicker[0]]["Close"].iloc[self.loc+1].round(2)
+                    
+                    self.filled_Obs.append([obs]) 
+                    
+                else:
+                    obs = self.data.iloc[self.loc]
+                    if any(obs.isnull()):
+                        continue
+                    #print(obs )
+                    
+                    # get open for only first main stock
+                    self.open = obs[self.stockTicker[0]]["Open"].round(2)
+                    self.close = obs[self.stockTicker[0]]["Close"].round(2)
                 
+                    #self.current_date = pd.to_datetime(obs["Datetime"]).date()
+                    # Stretch observation acros single axis
+                    combined_obs = [] # combined observation from multiple stocks
+                    combined_obs.clear()
+                    for stock in self.stockTicker:
+                        combined_obs.append(obs[stock][self.features].round(2) if not getData=="fromCSV" else obs[stock][self.features])
+                    
+                    combined_obs = pd.concat(combined_obs, axis = 0, ignore_index=True)
+                    self.filled_Obs.append([combined_obs.values])   
                 
                 self.loc+=1
                 #if self.loc==self.len_data-1:
                 #    self.loc=0
-                self.filled_Obs.append([obs.values])
-            
-
+                
+                # fill the observation for the agent
+                
         else:
-            obs = self.data.iloc[self.loc]
-            #self.current_date = pd.to_datetime(obs["Datetime"]).date()
-            obs = obs[self.features].round(2) if not getData=="fromCSV" else obs[self.features]
-            self.loc+=1
+            if self.args.compute_pct_change:
+                obs = self.pct_change_data.iloc[self.loc]
+                # get open for only first main stock
+                self.open = self.data[self.stockTicker[0]]["Open"].iloc[self.loc+1].round(2)
+                self.close = self.data[self.stockTicker[0]]["Close"].iloc[self.loc+1].round(2)
+                
+                self.filled_Obs.append([obs])
+            else:
+                obs = self.data.iloc[self.loc]
+                if any(obs.isnull()):
+                    self.loc+=1
+                    return self.filled_Obs , self.loc == self.len_data
+                #print(obs )
+                # get open for only first main stock
+                self.open = obs[self.stockTicker[0]]["Open"].round(2)
+                self.close = obs[self.stockTicker[0]]["Close"].round(2)
+            
+                #self.current_date = pd.to_datetime(obs["Datetime"]).date()
+                # Stretch observation acros single axis
+                combined_obs = [] # combined observation from multiple stocks
+                combined_obs.clear()
+                for stock in self.stockTicker:
+                    combined_obs.append(obs[stock][self.features].round(2) if not getData=="fromCSV" else obs[stock][self.features])
+                
+                combined_obs = pd.concat(combined_obs, axis = 0, ignore_index=True)
 
-            self.filled_Obs.append([obs.values])
+                self.filled_Obs.append([combined_obs.values])
+            
+            """obs = self.data.iloc[self.loc]
+            #self.current_date = pd.to_datetime(obs["Datetime"]).date()
+            # Stretch observation acros single axis
+            combined_obs = [] # combined observation from multiple stocks
+            combined_obs.clear()
+            for stock in self.stockTicker:
+                combined_obs.append(obs[stock][self.features].round(2) if not getData=="fromCSV" else obs[stock][self.features])
+                
+            combined_obs = pd.concat(combined_obs, axis = 0, ignore_index=True) # stretch the obsevration to single axis
+            """
+            self.loc+=1
 
         return self.filled_Obs , self.loc == self.len_data
     
@@ -149,8 +224,13 @@ class EnvironmentUtils():
             If you have your data already written to CSV file please use methode 'getStockObservation_fromCSV'
         """
         print("Downloading following stock data now --> {}".format(self.stockTicker))
-        self.tickerData = yf.Tickers(self.stockTicker)
+        if len(self.stockTicker)>1:
+            self.tickerData = yf.Tickers(self.stockTicker) 
+        else:
+            #self.tickerData = yf.Tickers(self.stockTicker) 
+            self.tickerData = yf.Ticker(self.stockTicker[0]) 
         self.pandasData = self.tickerData.history(interval=self.trade_mode, group_by=self.stockTicker, rounding=True)
+        
         
         print(self.pandasData,self.pandasData.shape)
         
@@ -163,16 +243,26 @@ class EnvironmentUtils():
         print("writing the train and test data to a csv file for later...")
         #Write train data
         save_dir = "./"
-        for ticker in self.stockTicker:
-            train_file_name = os.path.join(save_dir,"train_{}.csv".format(ticker))
-            test_file_name = os.path.join(save_dir,"test_{}.csv".format(ticker))
-            self.pandasData.astype(np.float32)
-            self.pandasData[ticker].to_csv(train_file_name, float_format='%.2f')
-            #write test data
-            self.testData.astype(np.float32)
-            self.testData[ticker].to_csv(test_file_name, float_format='%.2f')
-        
-
+        if len(self.stockTicker)>1:
+            for ticker in self.stockTicker:
+                train_file_name = os.path.join(save_dir,"train_{}.csv".format(ticker))
+                test_file_name = os.path.join(save_dir,"test_{}.csv".format(ticker))
+                self.pandasData.astype(np.float32)
+                self.pandasData[ticker].to_csv(train_file_name, float_format='%.2f')
+                #write test data
+                self.testData.astype(np.float32)
+                self.testData[ticker].to_csv(test_file_name, float_format='%.2f')
+            
+        else:
+                ticker = self.stockTicker[0]
+                train_file_name = os.path.join(save_dir,"train_{}.csv".format(ticker))
+                test_file_name = os.path.join(save_dir,"test_{}.csv".format(ticker))
+                self.pandasData.astype(np.float32)
+                self.pandasData.to_csv(train_file_name, float_format='%.2f')
+                #write test data
+                self.testData.astype(np.float32)
+                self.testData.to_csv(test_file_name, float_format='%.2f')
+            
     def getStockObservation_fromCSV(self, mode="train", path="./"):
         filenames = glob.glob(os.path.join(path, mode+"_*.csv"))
         if not filenames or not os.path.exists(filenames[0]) or self.args.reload:

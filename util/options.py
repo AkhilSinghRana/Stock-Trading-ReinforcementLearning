@@ -5,6 +5,10 @@ def ArgumentParser():
 
         # parser.add_argument('--mode', help="Mode can be train, test or continueTrain", default="train", type=str)
         parser.add_argument("--mode", type=str, default="train", help="train/test/continueTrain")
+        
+        parser.add_argument("--singleDayTestMode", action="store_true")
+        parser.add_argument("--date", type=str, default="2020-04-30", help="date to test the agent")
+
         parser.add_argument("--fromCSV", type=bool, default=False, help="Read the data from CSV")
         parser.add_argument("--reload", action="store_true")
         parser.add_argument("--visualize","-visualize", action="store_true")
@@ -17,6 +21,7 @@ def ArgumentParser():
         # Arguments for the STOCK MARKET
         parser.add_argument("--s_ticker", nargs="+", default=["MSFT"], help="This defines which stock will be used for training or testing, defaults to MICROSOFT")
         parser.add_argument("--s_features", nargs="+", default=["Open" , "Low", "High", "Close", "Volume"], help="Features to consider for stock")
+        parser.add_argument("--compute_pct_change", action="store_true")
         parser.add_argument("--wait_time", type=int, default=60, help="Agent waits for the specified number of mins everyday before it is ready for trade")
         parser.add_argument("--trade_interval", type=str, default="1h", help="interval to record 1m/1h/1d ... default 1 hour please refer to yFinance for availabel options")
         parser.add_argument("--account_balance", type=int, default=5000, help="Account balance to start with $USD default: 5000 $USD")
