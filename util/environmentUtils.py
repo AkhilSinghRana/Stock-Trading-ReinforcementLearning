@@ -7,13 +7,17 @@ import random, os, glob
 from collections import deque
 class EnvironmentUtils():
     """A clas that holds some variables important to dynamically create and modify custom Trading environments"""
-    def __init__(self, args=None):
+    def __init__(self, args=None, external_func=None):
         """
             Initialize the main Variables!
         """
+        self.args = args
+        #get the external function
+        self.external_func = external_func
+            
+        
         #Variables required for Stock market
         self.pandasData = None
-        self.args = args
         self.stockTicker = self.args.s_ticker # Ticker defines which stock to chosse, default is Microsoft, for this example
         self.num_stocks = len(self.stockTicker) # NUmber of stocks, whose features will be used, the first one will be traded for
         
@@ -21,15 +25,15 @@ class EnvironmentUtils():
         self.agent_mode = self.args.mode #train/test modes for agent
         self.MAX_SHARE_PRICE = None #Max price of the share used to normalize the data
         self.MAX_NUM_SHARES = None #Max number of Shares/Volume that the data can have
-        self.init_loc = None        #Initial lcoation where the observation will start from, random every episode
-        self.loc = self.init_loc
 
         #Observation based variables for the environment defined below
         
         self.agent_reaction_time = self.args.wait_time #number of minutes agent needs in order to react, ===== 60 == 1 hour
-        self.n_obs_hist = int((self.agent_reaction_time ) / int(self.trade_mode[0]))  #Number of days/hours(for minute mode) to keep in the Observation Agent will have history for n days/hours
+        self.n_obs_hist = self.args.obs_hist_window  #Observation window for the agent, agent holds history of window size n
         
-
+        self.init_loc = int(((self.agent_reaction_time ) / int(self.trade_mode[0])) - self.n_obs_hist)        #Initial lcoation where the observation will start from, random every episode
+        self.loc = self.init_loc
+       
         self.features= self.args.s_features
         print(self.features)
         
@@ -44,7 +48,10 @@ class EnvironmentUtils():
         self.trainData = list() # Holds subset of training dataFrames
         self.already_sampled_DataIndices = list() # Holds the list indexes which have already been sampled in an episode
 
+        self.current_time = None #keeps track of the current time
+
     def groupData(self):
+        self.trainData.clear()
         # Create Groups for everyday data
         grouped_dict=dict()
         for ticker in self.stockTicker:
@@ -75,7 +82,7 @@ class EnvironmentUtils():
                 else:
                     self.trainData.append(df) 
 
-        print("Total Training days available --> ", len(self.trainData))
+        print("Total groups available --> ", len(self.trainData))
 
     def _getNextObservation(self, getData="fromCSV", mode="step"):
         """
@@ -104,7 +111,7 @@ class EnvironmentUtils():
                     self.len_data = self.data.shape[0]
                     
                     if self.len_data < self.n_obs_hist:
-                        continue #Skips the days which don't have atleast the number of mins specified above!
+                        continue #Skips the days which don't have atleast the number of mins specified by the window size! might never happen
                     
                     # Compute the percentage data only when the flag is enabled
                     if self.args.compute_pct_change:
@@ -118,7 +125,7 @@ class EnvironmentUtils():
 
                     
                     self.current_date = self.data[self.stockTicker[0]]["Datetime"].iloc[0].date()
-                    self.loc = 0 # Location within the day, starts from 1st datapoint
+                    self.loc = self.init_loc # Location within the day, starts from agent cooldown period(wait time)
                     
                     
                     break
@@ -140,6 +147,7 @@ class EnvironmentUtils():
         if len(self.filled_Obs)<self.n_obs_hist:
             while len(self.filled_Obs)<self.n_obs_hist:
                 
+                self.current_time = self.data[self.stockTicker[0]]["Datetime"].iloc[self.loc].time() #Keeps track of the current time in the observation
                 if self.args.compute_pct_change:
                     obs = self.pct_change_data.iloc[self.loc]
                     # get open for only first main stock
@@ -175,6 +183,7 @@ class EnvironmentUtils():
                 # fill the observation for the agent
                 
         else:
+            self.current_time = self.data[self.stockTicker[0]]["Datetime"].iloc[self.loc].time() #Keeps track of the current time in the observation
             if self.args.compute_pct_change:
                 obs = self.pct_change_data.iloc[self.loc]
                 # get open for only first main stock
@@ -218,27 +227,75 @@ class EnvironmentUtils():
         return self.filled_Obs , self.loc == self.len_data
     
 
+    
     def getStockObservation_online(self):
         """
             Get the stock observation directly from the yFinance or other frameworks.
             If you have your data already written to CSV file please use methode 'getStockObservation_fromCSV'
         """
         print("Downloading following stock data now --> {}".format(self.stockTicker))
+        
+        self.pandasData = yf.download(tickers=self.stockTicker, interval=self.trade_mode,
+                                         group_by=self.stockTicker, 
+                                         rounding=True,
+                                         start=None,
+                                         end=None, 
+                                         period="1mo",
+                                         threads=True)
+        """
+        # The history call makes sure to get the max possible data                                         
         if len(self.stockTicker)>1:
-            self.tickerData = yf.Tickers(self.stockTicker) 
-        else:
             #self.tickerData = yf.Tickers(self.stockTicker) 
-            self.tickerData = yf.Ticker(self.stockTicker[0]) 
-        self.pandasData = self.tickerData.history(interval=self.trade_mode, group_by=self.stockTicker, rounding=True)
+        else:
+            #self.tickerData = yf.Ticker(self.stockTicker[0]) 
+        """
+        #self.pandasData = self.tickerData.history(interval=self.trade_mode, group_by=self.stockTicker, rounding=True)
+        #add extra columns if defined in args
+        if self.args.pass_external_func:
+            output = self.external_func(self.pandasData[self.stockTicker[0]]["Open"], self.pandasData[self.stockTicker[0]]["Close"])
+            
+            output = output.values.tolist()
+            print(len(output))
+            self.pandasData[self.stockTicker[0], "Open2Close"] = output
+            print(self.pandasData)
+
+
+
+        total_nan = 0
+                
+        for i in range(len(self.pandasData.index)):
+            row = self.pandasData.iloc[i].isnull()
+            if any(row):
+                total_nan +=1
+        print(self.pandasData,self.pandasData.shape, "total rows with null values ====>",total_nan)
         
-        
-        print(self.pandasData,self.pandasData.shape)
-        
+
+        multi_data = [] #list that stores multiple data frames, usefull to concatenate each of them later
+        for i, ticker in enumerate(self.stockTicker):
+            data = self.pandasData[ticker]
+            data["Datetime"] = data.index
+            multi_data.append(data)
+
+        self.pandasData = pd.concat(multi_data, axis=1, ignore_index=False, keys= self.stockTicker)
+        print("Data grouping, shuffling, megring and saving in process ::::::::::")
+        #Group the data now!
+        self.groupData()
         #Split to trainTest 
-        split_percent = 0.1 #10 percent
-        num_test_rows = int(split_percent* self.pandasData.shape[0])
-        self.testData = self.pandasData.tail(num_test_rows)
-        self.pandasData = self.pandasData[:-num_test_rows]
+        split_percent = self.args.test_split_percentage #10 percent
+        num_test_rows = int(split_percent* len(self.trainData))
+        print("Total Test dates =====>", num_test_rows)
+        # Shuffle the data and then take 20 percent as test!
+        random.shuffle(self.trainData)
+        random.shuffle(self.trainData)
+        self.test_data = self.trainData[-num_test_rows:]
+        self.trainData = self.trainData[:-num_test_rows]
+        
+        self.pandasData = pd.concat(self.trainData, axis=0, ignore_index=False, verify_integrity=True, sort=False)
+        self.testData = pd.concat(self.test_data, axis=0, ignore_index=False, verify_integrity=True, sort=False)
+        
+        #for ticker in self.stockTicker:
+        self.pandasData.drop("Datetime", axis=1, inplace=True, level=1)
+        self.testData.drop("Datetime", axis=1, inplace =True, level=1)
         
         print("writing the train and test data to a csv file for later...")
         #Write train data

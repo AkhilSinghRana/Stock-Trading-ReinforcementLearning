@@ -38,13 +38,18 @@ def save_training_setup(save_path=".", file_list=[], exp_name=""):
                 os.makedirs(os.path.join(save_path,folder_name[0]), exist_ok=True)
         copyfile(os.path.join(BASE_PATH, s_file), os.path.join(save_path, s_file))
 
+
+#Testing to pass external functions to a class
+def open2close(open, close):
+        return close-open
+
 def train(args):
         #Using Stable Baselines
         """
         Train the algorithm (with a given policy)
         """
         
-        env_info = {"args":args}
+        env_info = {"args":args, "external_func":open2close}
         env = make_vec_env(tradingEnv.TradingEnvironment, n_envs=args.num_envs, env_kwargs={"env_info": env_info})
         #env = VecFrameStack(env, n_stack = 4)
         #Uncomment to enable visualizations!
@@ -86,7 +91,7 @@ def train(args):
 def continueTrain():
         pass
 
-def test():
+def test(args):
         
         print("testing the trained environment")
         
@@ -131,7 +136,7 @@ if __name__ == "__main__":
                 train(args)
         elif args.mode=="test":
                 print("Testing")
-                test()
+                test(args)
         elif args.mode=="continueTrain":
                 continueTrain()
         elif args.mode=="checkEnv":

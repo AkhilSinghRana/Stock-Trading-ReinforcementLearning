@@ -22,8 +22,14 @@ def ArgumentParser():
         parser.add_argument("--s_ticker", nargs="+", default=["MSFT"], help="This defines which stock will be used for training or testing, defaults to MICROSOFT")
         parser.add_argument("--s_features", nargs="+", default=["Open" , "Low", "High", "Close", "Volume"], help="Features to consider for stock")
         parser.add_argument("--compute_pct_change", action="store_true")
+        parser.add_argument("--test_split_percentage", type=float, default=0.10, help="Percentage of data to be used for Testing")
+        parser.add_argument("--obs_hist_window", type=int, default=5, help="Agent Observation window, defaults to 5")
         parser.add_argument("--wait_time", type=int, default=60, help="Agent waits for the specified number of mins everyday before it is ready for trade")
-        parser.add_argument("--trade_interval", type=str, default="1h", help="interval to record 1m/1h/1d ... default 1 hour please refer to yFinance for availabel options")
+        parser.add_argument("--trade_interval", type=str, default="2m", help="interval to record 1m/1h/1d ... default 2m please refer to yFinance for availabel options")
         parser.add_argument("--account_balance", type=int, default=5000, help="Account balance to start with $USD default: 5000 $USD")
+        parser.add_argument("--trading_fees", type=float, default=0.02, help="percentage fees agent pays everytime it makes a transacetion")
+
+        #Arguments for passing external methods
+        parser.add_argument("--pass_external_func", action="store_true")
         args = parser.parse_args()
         return args
