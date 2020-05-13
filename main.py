@@ -95,7 +95,7 @@ def test(args):
         
         print("testing the trained environment")
         
-        env_info = {"args":args}
+        env_info = {"args":args, "external_func":open2close}
         env = make_vec_env(tradingEnv.TradingEnvironment, n_envs=args.num_envs, env_kwargs={"env_info": env_info})
         
         
@@ -114,8 +114,11 @@ def test(args):
                 # test_model_load.start_innvestigate(new_model, obs)
                 action, _states = model.predict(obs, deterministic=True)
                 obs, rewards, dones, info = env.step(action)
+
                 if dones:
                         print("RESET")
+                        if args.visualize:
+                                env.render()
                         #break
                 
                 

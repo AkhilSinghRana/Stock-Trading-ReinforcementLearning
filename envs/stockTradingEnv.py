@@ -8,6 +8,10 @@ from collections import deque
 import gym
 from gym import spaces
 
+import matplotlib.pyplot as plt
+
+
+
 #Import Environment Utility class
 from util import environmentUtils
 class TradingEnvironment(gym.Env):
@@ -16,7 +20,7 @@ class TradingEnvironment(gym.Env):
     def __init__(self, env_info={}):
         
         self.args = env_info["args"]
-        self.external_func = env_info["external_func"]
+        self.external_func = env_info["external_func"] if self.args.pass_external_func else None
 
         self.getData_fromCSV = self.args.fromCSV #boolean
         self.env_utils =  environmentUtils.EnvironmentUtils(args= self.args, external_func=self.external_func)
@@ -138,7 +142,9 @@ class TradingEnvironment(gym.Env):
             Live rendering of the agents actions and the stock market data enable the flag to visualize it
         """
         if mode == "human":
-            print(self.observation_space)
+            print("Rendering Agent Profit graph")
+            self.transposed_transactions.plot(x='Sell_Time', y='Sell_Profit', style='o')
+            plt.show()
         
         else:
             # No Rendering or prints
@@ -163,6 +169,8 @@ class TradingEnvironment(gym.Env):
             self.showStats()
             print("=======================================================================================================================")
             self.daily_account_balance = self.ACOUNT_BALANCE
+            if self.args.visualize:
+                self.render()
         
         info = {} #Generate extra information for debug
         #print(self.observation_space, self.observation_space.shape)
@@ -270,7 +278,14 @@ class TradingEnvironment(gym.Env):
                                     }, 
                                     axis=0)
 
-        print(transaction_data.T) # Transposed Dataframe to show correct values
+        self.transposed_transactions = transaction_data.T
+        print(self.transposed_transactions) # Transposed Dataframe to show correct values
+
+
+        # Drop the upper index, #done for ploting the transaction
+        self.transposed_transactions.columns = ['_'.join(col) for col in self.transposed_transactions.columns]
+        
+        
         #print(transaction_data.T["Profit"].sum(axis = 0, skipna = True, level=[0]) )
         #print(self.daily_log["Sell"])
         #Reset the daily stats
