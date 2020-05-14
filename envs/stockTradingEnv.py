@@ -21,6 +21,7 @@ class TradingEnvironment(gym.Env):
         
         self.args = env_info["args"]
         self.external_func = None
+        params = None
         if self.args.pass_external_func:
             self.external_func = env_info["external_func"]
             params = env_info["params"]
