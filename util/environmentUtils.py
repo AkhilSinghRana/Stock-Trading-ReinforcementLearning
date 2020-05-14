@@ -7,13 +7,14 @@ import random, os, glob
 from collections import deque
 class EnvironmentUtils():
     """A clas that holds some variables important to dynamically create and modify custom Trading environments"""
-    def __init__(self, args=None, external_func=None):
+    def __init__(self, args=None, external_func=None, external_params=None):
         """
             Initialize the main Variables!
         """
         self.args = args
         #get the external function
         self.external_func = external_func
+        self.external_params = external_params
             
         
         #Variables required for Stock market
@@ -252,11 +253,20 @@ class EnvironmentUtils():
         #self.pandasData = self.tickerData.history(interval=self.trade_mode, group_by=self.stockTicker, rounding=True)
         #add extra columns if defined in args
         if self.args.pass_external_func:
-            output = self.external_func(self.pandasData[self.stockTicker[0]]["Open"], self.pandasData[self.stockTicker[0]]["Close"])
+            param_dict = dict()
+            param_dict.clear()
             
+            # Create a list of dictionary for each parameter
+            for param in self.external_params:
+                param_dict["{}".format(param)] = self.pandasData[self.stockTicker[0]][param]
+            
+            #output = self.external_func(self.pandasData[self.stockTicker[0]]["Open"], self.pandasData[self.stockTicker[0]]["Close"])
+            output = self.external_func(param_dict)
             output = output.values.tolist()
-            print(len(output))
-            self.pandasData[self.stockTicker[0], "Open2Close"] = output
+            
+            # By default the function name is choosen as the Column name for the data frame
+            func_name = self.external_func.__name__ 
+            self.pandasData[self.stockTicker[0], func_name] = output
             print(self.pandasData)
 
 

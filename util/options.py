@@ -27,7 +27,7 @@ def ArgumentParser():
         parser.add_argument("--wait_time", type=int, default=60, help="Agent waits for the specified number of mins everyday before it is ready for trade")
         parser.add_argument("--trade_interval", type=str, default="2m", help="interval to record 1m/1h/1d ... default 2m please refer to yFinance for availabel options")
         parser.add_argument("--account_balance", type=int, default=5000, help="Account balance to start with $USD default: 5000 $USD")
-        parser.add_argument("--trading_fees", type=float, default=0.02, help="percentage fees agent pays everytime it makes a transacetion")
+        parser.add_argument("--trading_fees", type=float, default=0.02, help="percentage fees agent pays everytime it makes a transaction")
 
         #Arguments for passing external methods
         parser.add_argument("--pass_external_func", action="store_true")

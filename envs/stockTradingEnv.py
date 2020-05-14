@@ -20,10 +20,13 @@ class TradingEnvironment(gym.Env):
     def __init__(self, env_info={}):
         
         self.args = env_info["args"]
-        self.external_func = env_info["external_func"] if self.args.pass_external_func else None
+        self.external_func = None
+        if self.args.pass_external_func:
+            self.external_func = env_info["external_func"]
+            params = env_info["params"]
 
         self.getData_fromCSV = self.args.fromCSV #boolean
-        self.env_utils =  environmentUtils.EnvironmentUtils(args= self.args, external_func=self.external_func)
+        self.env_utils =  environmentUtils.EnvironmentUtils(args= self.args, external_func=self.external_func, external_params = params)
         self.env_utils.ACOUNT_BALANCE = self.args.account_balance # Account balance to start with user defines it!
         
         self.ACOUNT_BALANCE = self.env_utils.ACOUNT_BALANCE

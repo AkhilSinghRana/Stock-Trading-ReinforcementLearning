@@ -39,8 +39,11 @@ def save_training_setup(save_path=".", file_list=[], exp_name=""):
         copyfile(os.path.join(BASE_PATH, s_file), os.path.join(save_path, s_file))
 
 
-#Testing to pass external functions to a class
-def open2close(open, close):
+request_params = ["Open","Close"] # Define the Columns/Parameters that the environment should pass to the function
+def Open2Close(params=None):
+        open = params["Open"]
+        close = params["Close"]
+        
         return close-open
 
 def train(args):
@@ -49,7 +52,7 @@ def train(args):
         Train the algorithm (with a given policy)
         """
         
-        env_info = {"args":args, "external_func":open2close}
+        env_info = {"args":args, "external_func":Open2Close, "params":request_params}
         env = make_vec_env(tradingEnv.TradingEnvironment, n_envs=args.num_envs, env_kwargs={"env_info": env_info})
         #env = VecFrameStack(env, n_stack = 4)
         #Uncomment to enable visualizations!
