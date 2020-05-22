@@ -257,16 +257,25 @@ class EnvironmentUtils():
             param_dict.clear()
             
             # Create a list of dictionary for each parameter
-            for param in self.external_params:
-                param_dict["{}".format(param)] = self.pandasData[self.stockTicker[0]][param]
+            if self.external_params is not None:
+                for param in self.external_params:
+                    param_dict["{}".format(param)] = self.pandasData[self.stockTicker[0]][param]
+            else:
+                # Iterate over entire columns
+                pass
+                
             
             #output = self.external_func(self.pandasData[self.stockTicker[0]]["Open"], self.pandasData[self.stockTicker[0]]["Close"])
-            output = self.external_func(param_dict)
-            output = output.values.tolist()
             
-            # By default the function name is choosen as the Column name for the data frame
-            func_name = self.external_func.__name__ 
-            self.pandasData[self.stockTicker[0], func_name] = output
+            for func in self.external_func:
+                    
+                output = func(param_dict)
+                output = output.values.tolist()
+            
+                # By default the function name is choosen as the Column name for the data frame
+                func_name = func.__name__ 
+                self.pandasData[self.stockTicker[0], func_name] = output
+            
             print(self.pandasData)
 
 

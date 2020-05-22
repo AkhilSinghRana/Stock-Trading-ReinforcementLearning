@@ -39,12 +39,35 @@ def save_training_setup(save_path=".", file_list=[], exp_name=""):
         copyfile(os.path.join(BASE_PATH, s_file), os.path.join(save_path, s_file))
 
 
-request_params = ["Open","Close"] # Define the Columns/Parameters that the environment should pass to the function
+#Create a function and define what it shall do
+###  as an example below function computes the difference between open to close values for every timestamp
+request_params = ["Open","Close","Volume"] # Define the Columns/Parameters that the environment should pass to the function
+
 def Open2Close(params=None):
+        """
+        -params is a placeholder, which is waiting to be filled by the environment!
+        -params is the dictionary of list, with the key names equal to the request_params name
+        #Asssumptions, the function name is choosen as the new column name in the pandas dataframe
+        # You need to take care of how to handle the passed data in this function
+        """
+        open = params["Open"]
+        close = params["Close"]
+
+        return close-open
+
+def OpenPlusClose(params=None):
+        """
+        -params is a placeholder, which is waiting to be filled by the environment!
+        -params is the dictionary of list, with the key names equal to the request_params name
+        #Asssumptions, the function name is choosen as the new column name in the pandas dataframe
+        # You need to take care of how to handle the passed data in this function
+        """
         open = params["Open"]
         close = params["Close"]
         
-        return close-open
+        return close+open
+
+ext_func_list = [Open2Close, OpenPlusClose]
 
 def train(args):
         #Using Stable Baselines
@@ -52,7 +75,7 @@ def train(args):
         Train the algorithm (with a given policy)
         """
         
-        env_info = {"args":args, "external_func":Open2Close, "params":request_params}
+        env_info = {"args":args, "external_func":ext_func_list, "params":request_params}
         env = make_vec_env(tradingEnv.TradingEnvironment, n_envs=args.num_envs, env_kwargs={"env_info": env_info})
         #env = VecFrameStack(env, n_stack = 4)
         #Uncomment to enable visualizations!
