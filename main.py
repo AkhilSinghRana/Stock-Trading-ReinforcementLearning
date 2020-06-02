@@ -121,7 +121,7 @@ def test(args):
         
         print("testing the trained environment")
         
-        env_info = {"args":args, "external_func":open2close}
+        env_info = {"args":args, "external_func":ext_func_list, "params":request_params}
         env = make_vec_env(tradingEnv.TradingEnvironment, n_envs=args.num_envs, env_kwargs={"env_info": env_info})
         
         

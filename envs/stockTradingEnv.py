@@ -81,16 +81,33 @@ class TradingEnvironment(gym.Env):
         self.total_sold_transactions = 0
         
         self.daily_log = {"Buy": {"Time": list(),
-                                  "Price":list() 
+                                  "Price":list(),
+                                  "Profit":list(),
+                                  "Commision":list()
                                    },
 
                           "Sell":{"Time": list(),
                                   "Price":list(),
-                                  "Profit":list()
-                                   }
+                                  "Profit":list(),
+                                  "Commision":list()
+                                   },
+                            "GeneralInfo":{"NetWorth":list()
+                                            }
                             }
 
-        self.stats_template = "Total Shares Bought {} \t Total Shares Sold {} \t Total Shares HELD {} \t Held Shares Worth{}"
+        self.daily_stats_template = {   "Time": list(),
+                                        "Type": list(),
+                                        "Price":list(),
+                                        "Account_Balance":list(),
+                                        "Shares_Held":list(),
+                                        "Profit":list(),
+                                        "Commission":list(),
+                                        "Net_Worth":list(),
+                                        "Return":list(),
+                                        "Agent_Position":list()
+                                        }
+
+        #self.stats_template = "Total Shares Bought {} \t Total Shares Sold {} \t Total Shares HELD {} \t Held Shares Worth{}"
         
         self.account_stat_template = "Account balance at Start {} \t ACCOUNT BALANCE at End {} \t NetWorth {} \t PROFIT for today {}"
         self.account_stat_template_reduced = "Return today: {}% \t # of Trades: {}"
@@ -155,11 +172,32 @@ class TradingEnvironment(gym.Env):
         self.total_daily_transactions = 0
         self.total_buy_transactions = 0
         self.total_sold_transactions = 0
+        
+        self.agentState = POSSIBLE_STATES.HOLD # Agent is holding on to cash
+        
+        """
+        # RESET Daily Logs
         self.daily_log["Buy"]["Time"].clear()
         self.daily_log["Buy"]["Price"].clear()
+        self.daily_log["Buy"]["Profit"].clear()
+        self.daily_log["Buy"]["Commision"].clear()
         self.daily_log["Sell"]["Time"].clear()
         self.daily_log["Sell"]["Price"].clear()
         self.daily_log["Sell"]["Profit"].clear()
+        self.daily_log["Sell"]["Commision"].clear()
+        self.daily_log["GeneralInfo"]["NetWorth"].clear()
+        """
+        self.daily_stats_template["Time"].clear()
+        self.daily_stats_template["Type"].clear()
+        self.daily_stats_template["Price"].clear()
+        self.daily_stats_template["Account_Balance"].clear()
+        self.daily_stats_template["Shares_Held"].clear()
+        
+        self.daily_stats_template["Profit"].clear()
+        self.daily_stats_template["Commission"].clear()
+        self.daily_stats_template["Net_Worth"].clear()
+        self.daily_stats_template["Return"].clear()
+        self.daily_stats_template["Agent_Position"].clear()
         
         #print("RESET")
         #print(self.observation_space, self.observation_space.shape)
@@ -198,14 +236,16 @@ class TradingEnvironment(gym.Env):
                 # Either simply give a negative reward to keep the position open or forcefully close the position
                 if self.agentState == POSSIBLE_STATES.LONG:
                     # Sell the shares
-                    self.performTransaction(transaction_type="Sell")
                     self.agentPosition = POSSIBLE_POSITIONS.CLOSE
+                    self.performTransaction(transaction_type="Sell")
                 else:
                     # Buy the Shares
-                    self.performTransaction(transaction_type="Buy")
                     self.agentPosition = POSSIBLE_POSITIONS.CLOSE
+                    self.performTransaction(transaction_type="Buy")
+                
+                self.agentState = POSSIBLE_STATES.HOLD # Transition to HOLD at the end of episode!
 
-            self.step_reward+=self.calculateRewards() # Also include the daily Profit in the reward at the ends
+            #self.step_reward+=self.calculateRewards() # Also include the daily Profit in the reward at the ends
 
             # Finish the episode, and reset agent's variables, like account balance, sample a random day again!
             print("Agent's statistics for today: {}".format(self.env_utils.current_date))
@@ -220,6 +260,11 @@ class TradingEnvironment(gym.Env):
         #print(self.observation_space.shape)
         return self.observation_space, self.step_reward, self.done, info
     
+    def compute_networth(self):
+        # Agent's networth
+        self.held_shares_worth = self.SHARES_HELD * self.env_utils.close
+        self.net_worth = self.ACOUNT_BALANCE + self.held_shares_worth
+    
     def mapActions(self, action):
         if action == 0:
             agent_transition_state = POSSIBLE_STATES.HOLD
@@ -230,68 +275,13 @@ class TradingEnvironment(gym.Env):
         
         return agent_transition_state
     
-    def checkActionValidity(self, action):
-        """
-            Checks if the agent can transition to the next state
-        """
-        agent_next_transition_state = self.mapActions(action) #MAPS the action to the possible transitions STATES
-
-        if agent_next_transition_state == self.agentState:
-            # agent is already in the current state
-            # 1->1, 0->0, -1->-1
-            pass 
-        else:
-            if self.agentState == POSSIBLE_STATES.HOLD:
-                #Agent is holding on to Cash
-                if agent_next_transition_state == POSSIBLE_STATES.LONG:
-                    # Agent has a request to Buy, and go to open buy position
-                    self.performTransaction(transaction_type="Buy")
-                    self.agentPosition = POSSIBLE_POSITIONS.OPEN
-                    
-                else:
-                    # Agent has a request to Sell and open sell position
-                    self.performTransaction(transaction_type="Sell", transaction_amount=1)
-                    self.agentPosition = POSSIBLE_POSITIONS.OPEN
-                    
-            
-            if self.agentState == POSSIBLE_STATES.LONG:
-                #Agent is in long position
-                if agent_next_transition_state == POSSIBLE_STATES.HOLD:
-                    #agent is requesting to sell, and close it's position
-                    self.performTransaction(transaction_type="Sell")
-                    self.agentPosition = POSSIBLE_POSITIONS.CLOSE
-                    
-                else:
-                    # agent is requesting to go to Short state, sell twice! and open it's position
-                    self.performTransaction(transaction_type="Sell", transaction_amount=2)
-                    self.agentPosition = POSSIBLE_POSITIONS.OPEN
-                    
-            
-            if self.agentState == POSSIBLE_STATES.SHORT:
-                #Agent is in short position
-                if agent_next_transition_state == POSSIBLE_STATES.HOLD:
-                    #agent is requesting to Buy, and close it's position
-                    self.performTransaction(transaction_type="Buy")
-                    self.agentPosition = POSSIBLE_POSITIONS.CLOSE
-                
-                else:
-                    # agent is requesting to go to long state, --> Buy twice! and open it's position
-                    self.performTransaction(transaction_type="Buy", transaction_amount=2)
-                    self.agentPosition = POSSIBLE_POSITIONS.OPEN
-                    
-        
-        self.agentState = agent_next_transition_state
-        self.agentState_history.append(self.agentState.value)
-
-    def compute_networth(self):
-        # Agent's networth
-        self.held_shares_worth = self.SHARES_HELD * self.env_utils.close
-        self.net_worth = self.ACOUNT_BALANCE + self.held_shares_worth
-    def performTransaction(self, transaction_type = None, transaction_amount=1):
+    
+    
+    def performTransaction(self, transaction_type = None, double_transaction=False):
         """
             Buy or Sell transactions are done here
             transaction_type = Buy/Sell
-            transaction_amount = 1 or 2  2 if the agent decides to go from long to short or short to long
+            double_transaction = True means agent has decided to transition from Long/Short to Short/Long directly
         """
 
         # Set the current price to a random price within the time step
@@ -302,77 +292,155 @@ class TradingEnvironment(gym.Env):
         self.compute_networth()
         self.total_daily_transactions += 1
 
-        agentpenalty = self.args.trading_fees
-        if transaction_amount == 2:
-            agentpenalty *= 2 
-
-
+        agentpenalty = self.args.trading_fees 
+        
         if transaction_type == "Buy":
             #buy stocks
-            # Take away transaction fee from the networth*
-            self.net_worth = self.net_worth - (agentpenalty * self.net_worth)
-            self.total_buy_transactions += 1 # Buy Only when Feasible
-            self.daily_log["Buy"]["Time"].append(self.env_utils.current_time)
-            self.daily_log["Buy"]["Price"].append(current_price)
-        
-            # BUY a percentage amount only if Account Balance is in positive
-            total_possible = self.net_worth / current_price
+            #Check if the agent needs to sell the negative shares!, in case of short selling
+            if double_transaction:
+                # Buy Stocks worth of negative shares
+                shares_to_recover = -self.SHARES_HELD
+                transaction_price = shares_to_recover * current_price  # Price required to buy negative shares
+                commision = (agentpenalty * transaction_price)
+                transaction_price += commision #You have to pay more to cover the transaction commision
+                total_possible = transaction_price / current_price
+            else:
+                # Buy shares worth of account balance
+                commision = (agentpenalty * self.net_worth)
+                # Take away transaction fee from the networth*
+                self.net_worth = self.net_worth - commision
+                self.ACOUNT_BALANCE -= commision 
+                total_possible = self.net_worth / current_price
+                
 
-            
-            shares_bought = total_possible * transaction_amount
-            
+            self.total_buy_transactions += 1 # Buy Only when Feasible
+            # BUY a percentage amount only if Account Balance is in positive
+            shares_bought = total_possible
             self.SHARES_HELD += shares_bought
-            
             additional_cost = shares_bought * current_price
-            self.MONEY_EARNED = 0
-            self.MONEY_SPENT += additional_cost
+            
             self.ACOUNT_BALANCE -= additional_cost
             self.compute_networth()# Compute the new NetWorth, ACC_BAL + HeldPrice
+            
+            """
             self.daily_shares_bought += shares_bought
-            
-            
+            self.daily_log["Buy"]["Time"].append(self.env_utils.current_time)
+            self.daily_log["Buy"]["Price"].append(current_price)
+            self.daily_log["Buy"]["Commision"].append(commision)
+            self.daily_log["Buy"]["Profit"].append(self.net_worth - self.daily_account_balance)
+            self.daily_log["GeneralInfo"]["NetWorth"].append(self.net_worth )
+            """
         else:
             #Sell stocks
             self.total_sold_transactions += 1 #Increment only when feasible
             
             self.held_shares_worth = (self.SHARES_HELD * current_price) 
 
-            if self.SHARES_HELD <= 0:
+            
+            if double_transaction or self.SHARES_HELD>0:
+                # SELL a percentage amount, for now we sell it all
+                shares_sold = self.SHARES_HELD
+
+            else:
                 # Short Sell, max possible is daily account balance or may be better just the account balance in hand
                 # shares_sold*current_price = daily_account_balance
-                max_price_to_gain = self.daily_account_balance if self.ACOUNT_BALANCE <= 0 else self.ACOUNT_BALANCE
-                shares_sold = max_price_to_gain / current_price
+                shares_sold = self.ACOUNT_BALANCE / current_price
             
-            else:
-                # SELL a percentage amount, for now we sell it all
-                shares_sold = self.SHARES_HELD * transaction_amount
-            
-            price_gained = (shares_sold * current_price) - (agentpenalty * (shares_sold * current_price))
+            transaction_price = shares_sold * current_price
+            commision = (agentpenalty * transaction_price)
+            price_gained = transaction_price - commision
 
             
             
             self.ACOUNT_BALANCE += price_gained
+            self.SHARES_HELD -= shares_sold
             self.compute_networth()
-            self.SHARES_HELD = 0
-            self.MONEY_EARNED += price_gained
-            self.SHARES_SOLD += shares_sold
-            self.transaction_profit = self.MONEY_EARNED - self.MONEY_SPENT
-            
-            self.MONEY_SPENT = 0
-            self.daily_shares_sold += shares_sold
 
+            
+            """
             self.daily_log["Sell"]["Time"].append(self.env_utils.current_time)
             self.daily_log["Sell"]["Price"].append(current_price)
-            self.daily_log["Sell"]["Profit"].append(self.transaction_profit)
-            
-        self.step_reward = -agentpenalty
+            self.daily_log["Sell"]["Commision"].append(commision)
+            self.daily_log["Sell"]["Profit"].append(self.net_worth - self.daily_account_balance)
+            """
+        
+        
+        transaction_profit = self.net_worth - self.daily_account_balance # Computes the transaction profit
+        transaction_return = (transaction_profit/self.daily_account_balance) * 100 # Computes the transaction return
+        self.daily_stats_template["Time"].append(self.env_utils.current_time)
+        self.daily_stats_template["Type"].append(transaction_type)
+        self.daily_stats_template["Price"].append(current_price)
+        self.daily_stats_template["Account_Balance"].append(round(self.ACOUNT_BALANCE,2))
+        self.daily_stats_template["Shares_Held"].append(round(self.SHARES_HELD,2))
+        
+        self.daily_stats_template["Profit"].append(round(transaction_profit,2)) # Compute profit when transaction is closed
+        self.daily_stats_template["Commission"].append(round(commision,2))
+        self.daily_stats_template["Net_Worth"].append(round(self.net_worth,2))
+        self.daily_stats_template["Return"].append(round(transaction_return,2))
+        self.daily_stats_template["Agent_Position"].append(self.agentPosition)
+        
+        # assign the reward for this transaction
+        self.step_reward += -(agentpenalty + 1)
         
     def performAction(self, action):
         #### Maps an Algorithm's action to the Agent's action
         assert (action in self.action_space), "Oh, no action is invalid, check the action space of the environment"
         
         self.step_reward = 0
-        self.checkActionValidity(action)
+        
+        # Map the action
+        agent_next_transition_state = self.mapActions(action) #MAPS the action to the possible transitions STATES
+
+        
+        #Check if the agent can transition to the next state, and perform transaction
+        if agent_next_transition_state == self.agentState:
+            # agent is already in the current state
+            # 1->1, 0->0, -1->-1
+            pass 
+        else:
+            if self.agentState == POSSIBLE_STATES.HOLD:
+                #Agent is holding on to Cash
+                if agent_next_transition_state == POSSIBLE_STATES.LONG:
+                    # Agent has a request to Buy, and go to open buy position
+                    self.agentPosition = POSSIBLE_POSITIONS.OPEN
+                    self.performTransaction(transaction_type="Buy")
+                    
+                else:
+                    # Agent has a request to Sell and open sell position
+                    self.agentPosition = POSSIBLE_POSITIONS.OPEN
+                    self.performTransaction(transaction_type="Sell")
+                    
+            
+            if self.agentState == POSSIBLE_STATES.LONG:
+                #Agent is in long position
+                if agent_next_transition_state == POSSIBLE_STATES.HOLD:
+                    #agent is requesting to sell, and close it's position
+                    self.agentPosition = POSSIBLE_POSITIONS.CLOSE
+                    self.performTransaction(transaction_type="Sell")
+                    
+                else:
+                    # agent is requesting to go to Short state, sell twice! and open it's position
+                    self.agentPosition = POSSIBLE_POSITIONS.OPEN
+                    self.performTransaction(transaction_type="Sell", double_transaction=True)
+                    self.performTransaction(transaction_type="Sell") # second sell
+                    
+            
+            if self.agentState == POSSIBLE_STATES.SHORT:
+                #Agent is in short position
+                if agent_next_transition_state == POSSIBLE_STATES.HOLD:
+                    #agent is requesting to Buy, and close it's position
+                    self.agentPosition = POSSIBLE_POSITIONS.CLOSE
+                    self.performTransaction(transaction_type="Buy")
+                
+                else:
+                    # agent is requesting to go to long state, --> Buy twice! and open it's position
+                    self.agentPosition = POSSIBLE_POSITIONS.OPEN
+                    self.performTransaction(transaction_type="Buy", double_transaction=True)
+                    self.performTransaction(transaction_type="Buy") # second buy
+                    
+        
+        self.agentState = agent_next_transition_state
+        self.agentState_history.append(self.agentState.value)
 
 
         
@@ -391,23 +459,25 @@ class TradingEnvironment(gym.Env):
     def showStats(self):
         self.daily_profit = self.ACOUNT_BALANCE - self.daily_account_balance
         self.compute_networth()
-        #print(self.stats_template.format(self.daily_shares_bought, self.daily_shares_sold, self.SHARES_HELD, self.held_shares_worth))
         
-        #print(self.account_stat_template.format(self.daily_account_balance, self.ACOUNT_BALANCE, self.net_worth, self.daily_profit))
-        pct_return = (self.daily_profit/self.daily_account_balance) * 100
+        pct_return = round((self.daily_profit/self.daily_account_balance) * 100, 2)
         print(self.account_stat_template_reduced.format(pct_return, self.total_sold_transactions))
         
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
         print(self.transaction_stat_template.format(self.total_daily_transactions, self.total_buy_transactions, self.total_sold_transactions))
 
         # Create a pandas dataframe from tabular structure, easy to read and manipulate
-        transaction_data = pd.DataFrame.from_dict(self.daily_log)
+        #transaction_data = pd.DataFrame.from_dict(self.daily_log)
+        transaction_data = pd.DataFrame.from_dict(self.daily_stats_template)
+        """
         transaction_data = pd.concat({
-                                        k: pd.DataFrame.from_dict(v, 'index') for k, v in self.daily_log.items()
+                                        k: pd.DataFrame.from_dict(v, 'index') for k, v in self.daily_stats_template.items()
                                     }, 
                                     axis=0)
-
-        self.transposed_transactions = transaction_data.T
+        """
+        #self.transposed_transactions = transaction_data.T
+        self.transposed_transactions = transaction_data
+        pd.options.display.float_format = '{:,.2f}'.format
         print(self.transposed_transactions) # Transposed Dataframe to show correct values
 
 
