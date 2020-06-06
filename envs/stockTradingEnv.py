@@ -210,7 +210,7 @@ class TradingEnvironment(gym.Env):
         """
         if mode == "human":
             print("Rendering Agent Profit graph")
-            self.transposed_transactions.plot(x='Sell_Time', y='Sell_Profit', style='o')
+            self.transposed_transactions.plot(x='Time', y='Profit', style='o')
             plt.show()
         
         else:
@@ -498,7 +498,7 @@ class TradingEnvironment(gym.Env):
 
 
         # Drop the upper index, #done for ploting the transaction
-        self.transposed_transactions.columns = ['_'.join(col) for col in self.transposed_transactions.columns]
+        #self.transposed_transactions.columns = ['_'.join(col) for col in self.transposed_transactions.columns]
         
         
         #print(transaction_data.T["Profit"].sum(axis = 0, skipna = True, level=[0]) )
