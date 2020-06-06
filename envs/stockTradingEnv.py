@@ -297,29 +297,35 @@ class TradingEnvironment(gym.Env):
         if transaction_type == "Buy":
             #buy stocks
             #Check if the agent needs to sell the negative shares!, in case of short selling
-            if double_transaction:
-                # Buy Stocks worth of negative shares
+            if self.agentPosition==POSSIBLE_POSITIONS.CLOSE:
+                # Buy Stocks worth of negative shares, and close the position
                 shares_to_recover = -self.SHARES_HELD
-                transaction_price = shares_to_recover * current_price  # Price required to buy negative shares
-                commision = (agentpenalty * transaction_price)
-                transaction_price += commision #You have to pay more to cover the transaction commision
-                total_possible = transaction_price / current_price
+                
+                net_transaction_price = shares_to_recover * current_price  # Price required to buy negative shares  
+                # agent_penalty * TP = SP
+                transaction_price = (net_transaction_price / (1-agentpenalty) )   #You have to pay more to cover the transaction commision
+                
+                commision = transaction_price - net_transaction_price
+                
+                total_possible = shares_to_recover
             else:
                 # Buy shares worth of account balance
                 commision = (agentpenalty * self.net_worth)
                 # Take away transaction fee from the networth*
                 self.net_worth = self.net_worth - commision
                 self.ACOUNT_BALANCE -= commision 
-                total_possible = self.net_worth / current_price
+                transaction_price = self.ACOUNT_BALANCE
+                total_possible = self.ACOUNT_BALANCE / current_price
                 
+
 
             self.total_buy_transactions += 1 # Buy Only when Feasible
             # BUY a percentage amount only if Account Balance is in positive
             shares_bought = total_possible
             self.SHARES_HELD += shares_bought
-            additional_cost = shares_bought * current_price
+
             
-            self.ACOUNT_BALANCE -= additional_cost
+            self.ACOUNT_BALANCE -= transaction_price
             self.compute_networth()# Compute the new NetWorth, ACC_BAL + HeldPrice
             
             """
@@ -337,20 +343,26 @@ class TradingEnvironment(gym.Env):
             self.held_shares_worth = (self.SHARES_HELD * current_price) 
 
             
-            if double_transaction or self.SHARES_HELD>0:
+            if self.agentPosition == POSSIBLE_POSITIONS.CLOSE:
                 # SELL a percentage amount, for now we sell it all
                 shares_sold = self.SHARES_HELD
+
+                transaction_price = shares_sold * current_price
+                commision = (agentpenalty * transaction_price)
+                price_gained = transaction_price - commision
+
 
             else:
                 # Short Sell, max possible is daily account balance or may be better just the account balance in hand
                 # shares_sold*current_price = daily_account_balance
-                shares_sold = self.ACOUNT_BALANCE / current_price
+                transaction_price = self.ACOUNT_BALANCE
+                commision = (agentpenalty * transaction_price)
+                transaction_price -= commision
+                shares_sold = transaction_price / current_price
+                
+                price_gained = transaction_price
             
-            transaction_price = shares_sold * current_price
-            commision = (agentpenalty * transaction_price)
-            price_gained = transaction_price - commision
 
-            
             
             self.ACOUNT_BALANCE += price_gained
             self.SHARES_HELD -= shares_sold
@@ -380,7 +392,7 @@ class TradingEnvironment(gym.Env):
         self.daily_stats_template["Agent_Position"].append(self.agentPosition)
         
         # assign the reward for this transaction
-        self.step_reward += -(agentpenalty + 1)
+        self.step_reward += (-(agentpenalty * 2) + transaction_return/10)
         
     def performAction(self, action):
         #### Maps an Algorithm's action to the Agent's action
@@ -406,7 +418,7 @@ class TradingEnvironment(gym.Env):
                     self.performTransaction(transaction_type="Buy")
                     
                 else:
-                    # Agent has a request to Sell and open sell position
+                    # Agent has a request to Sell and open sell position (ShortSell)
                     self.agentPosition = POSSIBLE_POSITIONS.OPEN
                     self.performTransaction(transaction_type="Sell")
                     
@@ -420,9 +432,10 @@ class TradingEnvironment(gym.Env):
                     
                 else:
                     # agent is requesting to go to Short state, sell twice! and open it's position
-                    self.agentPosition = POSSIBLE_POSITIONS.OPEN
-                    self.performTransaction(transaction_type="Sell", double_transaction=True)
-                    self.performTransaction(transaction_type="Sell") # second sell
+                    self.agentPosition = POSSIBLE_POSITIONS.CLOSE
+                    self.performTransaction(transaction_type="Sell")
+                    self.agentPosition = POSSIBLE_POSITIONS.OPEN 
+                    self.performTransaction(transaction_type="Sell") # second sell (ShortSell)
                     
             
             if self.agentState == POSSIBLE_STATES.SHORT:
@@ -434,8 +447,11 @@ class TradingEnvironment(gym.Env):
                 
                 else:
                     # agent is requesting to go to long state, --> Buy twice! and open it's position
+                    self.agentPosition = POSSIBLE_POSITIONS.CLOSE
+                    self.performTransaction(transaction_type="Buy")
+
+                    #Open posiiton again
                     self.agentPosition = POSSIBLE_POSITIONS.OPEN
-                    self.performTransaction(transaction_type="Buy", double_transaction=True)
                     self.performTransaction(transaction_type="Buy") # second buy
                     
         
@@ -457,8 +473,8 @@ class TradingEnvironment(gym.Env):
 
     
     def showStats(self):
-        self.daily_profit = self.ACOUNT_BALANCE - self.daily_account_balance
         self.compute_networth()
+        self.daily_profit = self.net_worth - self.daily_account_balance
         
         pct_return = round((self.daily_profit/self.daily_account_balance) * 100, 2)
         print(self.account_stat_template_reduced.format(pct_return, self.total_sold_transactions))
